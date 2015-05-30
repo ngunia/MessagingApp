@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="/socket.io/socket.io.js"></script>
+        <script type="text/javascript">
+			var socket = io.connect('127.0.0.1:22222')
+			
+			socket.on('connect', function (data) {
+				socket.emit('set_name', { name: "User_"+socket.id });
+			});
+			
+            socket.on("message_to_client", function(data) {
+				document.getElementById("chatlog").innerHTML = 
+				(document.getElementById("chatlog").innerHTML + data['user']
+				+ ': ' + data['message'] + "<br>");
+			});
+			
+			function sendMessage() {
+				var msg = document.getElementById("message_input").value;
+				// check for commands
+				if(msg.substring(0,5) == "!name") {
+					socket.emit("set_name", {name: msg.substring(6)})
+				} else {
+					socket.emit("message_to_server", { message : msg});
+				}
+			}
+        </script>
+    </head>
+    <body>
+        <input type="text" id="message_input"/>
+        <button onclick="sendMessage()">send</button>
+        <div id="chatlog"></div>
+    </body>
+</html>

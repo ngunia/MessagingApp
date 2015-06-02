@@ -1,34 +1,115 @@
 <!DOCTYPE html>
 <html>
     <head>
+		<title>Messaging App</title>
         <script src="/socket.io/socket.io.js"></script>
         <script type="text/javascript">
 			var socket = io.connect('127.0.0.1:22222')
 			
 			socket.on('connect', function (data) {
-				socket.emit('set_name', { name: "User_"+socket.id });
+				var tempName = "User+"+socket.id.substring(0,8);
+				socket.emit('init_user', tempName );
+				var welcome_message = "Welcome, " + tempName + 
+				"!  Use command \'/name &lt;your name&gt;' to change your username.";
+				// TODO move server message to server
+				displayServerMessage(welcome_message);
 			});
 			
             socket.on("message_to_client", function(data) {
 				document.getElementById("chatlog").innerHTML = 
-				(document.getElementById("chatlog").innerHTML + data['user']
-				+ ': ' + data['message'] + "<br>");
+				(document.getElementById("chatlog").innerHTML +
+				"<b>" + data.user +  ': ' + "</b>"
+				 + data.message + "<br>");
 			});
 			
+			// Event-handler for server messages
+			socket.on("message_from_server", function(msg) {
+				displayServerMessage(msg)
+			});
+			
+			// Send a message or command to the server
 			function sendMessage() {
-				var msg = document.getElementById("message_input").value;
+				var msg = document.getElementById("message_input").value.trim();
+				//document.getElementById("message_input").value = "";
 				// check for commands
-				if(msg.substring(0,5) == "!name") {
-					socket.emit("set_name", {name: msg.substring(6)})
+				if (msg.substring(0,1) == "/") {
+					msg = msg.substring(1)
+					// split cmd string into arguments
+					// [0] -> cmd
+					// [1] -> arg1, a username or channel name
+					// [2] -> arg2, the optional message
+					// account for extra whitespace
+					var args = msg.replace(/\s+/g," ").split(" ", 3);
+					if (args.length > 2) {
+						args[2] = msg.substring(msg.indexOf(args[2]));	
+					}
+					processCommand(args);
 				} else {
-					socket.emit("message_to_server", { message : msg});
+					socket.emit("message_to_server", msg);
 				}
 			}
+			
+			// Processes commands denoted by a starting forward-slash
+			function processCommand(args) {
+				if (args[0] == "name") {
+						socket.emit("set_name", args[1].trim() );
+						// TODO move this to server
+						displayServerMessage('Name changed to ' + args[1].trim());
+				} else if (args[0] == "m") {
+					// set to message a peer
+					socket.emit('set_msg_dest', {destType: args[0], dest: args[1]} )
+					// optionally send message to peer
+					if (args.length > 2) {
+						socket.emit("message_to_server", args[2]);
+					}
+				/*} else if (args[0] == "g") {
+					// set to message group
+					// optionally send message to group
+				} else if (args[0] == "join") {
+					// join group and set to message group
+				} else if (args[0] == "leave") {
+					// leave group
+				} else if (args[0] == "newchannel") {
+					// create a new channel
+				} else if (args[0] == "closechannel") {
+					// close the channel
+				*/
+				} else if (args[0] == "help") {
+					// TODO move server message to server
+					displayServerMessage("Use /m &lt;username&gt; &lt;msg&gt; to message a user. "+
+											"To create a channel and automatically join, use /newchannel &lt;channel&gt;. " +
+											"If you want to close your channel, type /closechannel. "+
+											"Type /join &lt;channel&gt; &lt;msg&gt; to join an existing channel, /leave &lt;channel&gt; to leave, "+ 
+											"/g &lt;msg&gt; to message your joined channel. "+
+											"Using /m and /g changes chat context to that user or group channel, " +
+											"so you do not need to type it every time. "+
+											"/name can be used to change your name.");
+				} else {
+					displayServerMessage("Invalid command.  Type /help for info about all commands");
+				}
+			}
+			
+			// Used to display administrative/control messages from server
+			function displayServerMessage(msg) {
+				document.getElementById("chatlog").innerHTML = 
+				(document.getElementById("chatlog").innerHTML +
+				"<b>" + "&lt;Server&gt;: " + "</b><i>"
+				 + msg + "</i><br>");
+			}
+			
         </script>
+		<style>
+		</style>
     </head>
     <body>
-        <input type="text" id="message_input"/>
-        <button onclick="sendMessage()">send</button>
-        <div id="chatlog"></div>
+		<div style="top:10px;bottom:35px;width:100%;border:1px solid #ccc;font:12px Arial;overflow:auto;" 
+		id="chatlog" >
+		<div/>
+		
+        <input style="position:fixed;left:0px;bottom:0px;height:20px;width:90%;border:2px solid #ccc;font:12px Arial;overflow:auto;" 
+		id="message_input"/>
+        <button style="position:fixed;right:0px;bottom:0px;height:25px;width:10%;" 
+		onclick="sendMessage()">Send</button>
+		
     </body>
 </html>

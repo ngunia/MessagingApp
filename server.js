@@ -25,26 +25,26 @@ var clients = new Array(); 			// associative array that holds the clients
 var groupChannels = new Array(); 	// associative array that holds group channel names
  
 io.sockets.on('connection', function(socket) {
-	console.log('got a connection')
     socket.on('message_to_server', function(msg) {
-		user_name = socket.clientName;
-		console.log(user_name)
-		console.log(msg)
-		console.log(groupChannels[socket.dest])
-		console.log(socket.dest)
-		console.log()
-		// TODO handle case of invalid channel or user
-		if (socket.destType == "m" && clients[socket.dest] != null) {
-			console.log('sending private message');
-			io.to(clients[socket.dest].sockID).emit("message_to_client", { message: msg, user: user_name});
-		} else if (socket.destType == "g" && groupChannels[socket.dest] != null) {
-			console.log('sending channel message')
-			socket.broadcast.to(socket.room).emit("message_to_channel", { channelName: socket.dest, user: user_name, message: msg});
-		} else {
-			io.sockets.emit("message_to_client", { message: msg, user: user_name});
+		if (socket.dest == "unknown") {
+			console.log("Invalid context change, message dies here, then reverts context.")
+			socket.dest = socket.lastDest;
+		} else if (socket.destType == "m" && clients[socket.dest] != undefined) {
+			clientToClient(clients[socket.dest].sockID, {message: msg, user: socket.clientName, flag: "PM"});
+		} else if (socket.destType == "c" && groupChannels[socket.dest] != undefined) {
+			if(socket.room == socket.dest) {
+				messageChannel({channelName: socket.dest, user: socket.clientName, message: msg});
+			} else {
+				messageClient("Sorry, you must join " + socket.dest + " if you wish to speak in this channel.");
+			}
+		} else if (socket.destType == undefined) {
+			globalMessage({ message: msg, user: socket.clientName, flag:"Global"});
 		}
 	});
 	
+	/*
+	* Events that handle messages sent to/through the server and user preferences
+	*/
 	
 	socket.on('server_messages', function(msg) {
 		var rsp;
@@ -52,32 +52,32 @@ io.sockets.on('connection', function(socket) {
 			rsp = "Use /m &lt;username&gt; &lt;msg&gt; to message a user. "+
 					"To create a channel and automatically join, use /newchannel &lt;channel&gt;. " +
 					"If you want to close your channel, type /closechannel. "+
-					"Type /join &lt;channel&gt; &lt;msg&gt; to join an existing channel, /leave &lt;channel&gt; to leave, "+ 
-					"/g &lt;msg&gt; to message your joined channel. "+
-					"Using /m and /g changes chat context to that user or group channel, " +
+					"Type /join &lt;channel&gt; &lt;msg&gt; to join an existing channel, /leave to leave, "+ 
+					"/c &lt;msg&gt; to message your joined channel. "+
+					"Using /m and /c changes chat context to that user or group channel, " +
 					"so you do not need to type it every time. "+
 					"/name can be used to change your name.";
 		} else if (msg == "bad_cmd") {
-			rsp = "Invalid command.  Type /help for info about all commands";
+			rsp = "Invalid command.  Type /help for info about all commands.";
 		}
-		io.to(socket.id).emit("message_from_server", rsp);
+		//io.to(socket.id).emit("message_from_server", rsp);
+		messageClient(rsp);
 	});
 	
-	
-	// TODO recombine with below
 	socket.on('init_user', function(username) {
-		console.log('setting up user');
 		// store the clients name to the socket
 		socket.clientName = username;
 		// store to global list of users
 		var client = new Object();
 		client.name = username;
 		client.sockID = socket.id;
+		console.log(socket.id)
+		setContext(undefined, undefined)
 		clients[username] = client;
-		io.to(socket.id).emit("message_from_server", "Welcome, " + socket.clientName + "!" + 
+		messageClient("Welcome, " + socket.clientName + "!" + 
 		" Use command \'/name &lt;your name&gt;' to change your username.");
 		// notify other users of new user
-		socket.broadcast.emit("message_from_server", username + " has joined the chat!");
+		globalBroadcast(username + " has joined the chat!");
 	});
 	
 	// Change a client's username and update in global list of clients
@@ -86,84 +86,184 @@ io.sockets.on('connection', function(socket) {
 		// store new client name to socket
 		socket.clientName = username;
 		// update client in global list of clients
+		// since client name is the key, make a new client then remove the old
 		var client = new Object();
 		client.name = username;
 		client.sockID = socket.id;
 		clients[username] = client;
+		// if the user owns a channel, transfer ownership to new name
+		for (var channel in groupChannels){
+			if (groupChannels[channel].owner == oldName) {
+				groupChannels[channel].owner = username;
+			}
+		}
 		// remove old client alias
 		delete clients.oldName;
-		io.to(socket.id).emit("message_from_server", "Your name has been changed to " + username);
-		socket.broadcast.emit("message_from_server", oldName + " has changed name to " + username);
+		messageClient("Your name has been changed to " + username)
+		globalBroadcast(oldName + " has changed name to " + username)
 	});
 	
 	// Set user to peer or group context and to specific user/group
 	socket.on('set_msg_dest', function(data) {
 		// TODO ensure user/channel exists
-		console.log('setting message dest');
-		console.log(data.destType);
-		console.log(data.dest);
 		setContext(data.destType, data.dest);
 	});
 	
 	
-	// channels have an owner and a list of connected users
-	// to send to a channel, broadcast to list of users 
+	/*
+	* Events that deal with group channels
+	*/
 	
 	// Create a new channel with given name given channel name
 	// Set the user who creates the channel as the owner, 
 	// users can only own one channel at a time
 	socket.on('create_channel', function(channelName) {
-		if (groupChannels[channelName] == null) {
-			socket.room = channelName;
+		if (socket.channelOwned != undefined) {
+			messageClient("You already own a room called " + socket.room + ". If you want to make a new one, close it with: /closechannel " + socket.room);
+		}
+		else if (groupChannels[channelName] != undefined) {
+			messageClient("This channel already exists.");
+		} else {
 			var channel = new Object();
 			channel.owner = socket.clientName;
 			groupChannels[channelName] = channel;
-			socket.join(channelName);
-			console.log(groupChannels);
-			io.to(socket.id).emit("message_from_server", "Channel " + channelName + " created!");
-			// set client's context to message the channel
-			setContext("g", channelName);
-		} else {
-			io.to(socket.id).emit("message_from_server", "This channel already exists.");
+			socket.channelOwned = channelName;
+			messageClient("Channel " + channelName + " created!")
 		}
 	});
 	
 	// Join a user to a channel, user can subscribe to one channel at a time
 	socket.on('join_channel', function(channelName) {
-		if (groupChannels[channelName] != null) {
-			socket.room = channelName
+		if (channelName == socket.room) {
+			messageClient("You are already a member of channel " + channelName + "!");
+		} else if (socket.room != undefined) {
+			socket.leave(socket.room);
+			broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." })
+			socket.room = channelName;
 			socket.join(channelName);
-			io.to(socket.id).emit("message_from_server", "You have joined channel: " + channelName);
-			// alert other users in channel of new user
-			socket.broadcast.to(channelName).emit("message_from_server", socket.clientName + " has joined " + channelName + ".");
-			// set client's context to messages the channel
-			setContext("g", channelName);
+			broadcastToRoom({channelName: channelName, user: "Server", message: socket.clientName + " has joined " + channelName + "." });
+			setContext("c", channelName);
+			messageClient("You have switched to channel " + channelName);
+		} else if (groupChannels[channelName] == undefined) {
+			messageClient("Sorry, that channel doesn't exist, create it with command: /newchannel " + channelName + ".")
 		} else {
-			io.to(socket.id).emit("message_from_server", "Sorry, that channel doesn't exist, create it with command: /newchannel " + channelName + ".");
+			socket.room = channelName;
+			socket.join(channelName);
+			messageClient("You have joined channel: " + channelName)
+			// alert other users in channel of new user
+			broadcastToRoom({channelName: channelName, user: "Server", message: socket.clientName + " has joined " + channelName + "." });
+			// set client's context to messages the channel
+			setContext("c", channelName);
 		}
+	});
+	
+	socket.on('leave_channel', function() {
+		socket.leave(socket.room);
+		broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." })
+		messageClient("You have left "+ socket.room + ".")
+		socket.room = undefined;
+		setContext(undefined, undefined);
 	});
 	
 	// If the owner of the channel decides to close the channel,
 	// remove all users and remove channel from list of channels
-	// socket.on('close_channel', function() {});
+	 socket.on('close_channel', function(channelName) {
+		if (socket.clientName != groupChannels[channelName].owner) {
+			messageClient("You don't own channel " + channelName + "!");
+		} else {
+			closeChannel(channelName);
+			messageClient("You have successfully closed channel " + channelName);
+		}
+	
+	 });
 	
 	// When a user disconnects, remove the client from list of clients
 	// If the client owned a channel close it since clients do not persist
 	socket.on('disconnect', function(data) {
-		socket.broadcast.emit("message_from_server", socket.clientName + " has disconnected.");
-		delete clients[socket.clientName]
-		// TODO close client's channel if they have one
+		globalBroadcast(socket.clientName + " has disconnected.");
+		// check if client was in a channel and leave if so
+		if (socket.room != undefined) {   
+			leaveChannel();
+		}
+		if (socket.channelOwned != undefined) {
+			closeChannel(socket.channelOwned);
+		}
+		
+		delete clients[socket.clientName];
 	});
 	
+	// separate function so it can be run on client disconnect as well
+	function closeChannel(channelName) {
+		//socket.channelOwned = undefined;
+		roomClients = io.nsps['/'].adapter.rooms[channelName];
+		for (var client in roomClients) {
+			cli = io.sockets.connected[client];
+			if (socket.id != cli.d) {
+				cli.room = undefined;
+				cli.destType = undefined;
+				cli.dest = undefined;
+				io.to(cli.id).emit("message_from_server", "You have been removed from channel " + channelName + " due to it being closed by the owner.");
+			}
+		}
+		delete groupChannels[channelName];
+	}
+	
+	// separate function so it can be run on client disconnect as well
+	function leaveChannel() {
+		socket.leave(socket.room);
+		broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." })
+		messageClient("You have left "+ socket.room + ".")
+		socket.room = undefined;
+		setContext(undefined, undefined);
+	}
+	
 	function setContext(dType, dest) {
-		if ( dType == "m" && clients[dest] == null) {
-			io.to(socket.id).emit('message_from_server', "Sorry, that's an invalid client.")
-		} else if ( dType == "g" && groupChannels[dest] == null) {
-			io.to(socket.id).emit('message_from_server', "Sorry, that's an invalid channel.")
+		// save old dest in case context change is invalid so it can be reverted
+		socket.lastDest = socket.dest;
+		socket.dest = "unknown";
+		if ( dType == "m" && clients[dest] == undefined) {
+			messageClient("Sorry, that's an invalid client.");
+		} else if ( dType == "c" && groupChannels[dest] == undefined) {
+			messageClient("Sorry, that's an invalid channel.");
 		} else { // valid context
 			socket.destType = dType;
 			socket.dest = dest;
 		}
+	}
+	
+	/*
+	* Wrapper functions for different type of message sends
+	*/
+	
+	// Send a global broadcast to all clients except sender (from server)
+	function globalBroadcast(msg) {
+		socket.broadcast.emit('message_from_server', msg);
+	}
+	
+	// Send a message to all clients using the chat service from another client
+	function globalMessage(data) {
+		io.sockets.emit('message_to_client', data);
+	}
+	
+	// Send a message to an individual client from the server
+	function messageClient(msg) {
+		io.to(socket.id).emit('message_from_server', msg);
+	}
+	
+	// Send a message to all clients in room except sending client
+	function broadcastToRoom(data) {
+		socket.broadcast.to(data.channelName).emit('message_to_channel', data);
+	}
+	
+	// Sends message to all clients in room including sending client
+	function messageChannel(data) {
+		io.sockets.in(data.channelName).emit('message_to_channel', data);
+	}
+	
+	// Message an individual client from another client
+	function clientToClient(otherClientID, data) {
+		io.to(otherClientID).emit('message_to_client', data);
+		io.to(socket.id).emit('message_to_client', data);
 	}
 	
 });

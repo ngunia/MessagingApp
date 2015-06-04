@@ -1,11 +1,13 @@
 var http = require('http')
 var fs = require('fs');
 
-var PORT = 22222
+var ADDR = "127.0.0.1";
+var PORT = 22222;
 
-// serve the HTML page used for the chat client
+// serve the HTML, css, and js to the client
 var app = http.createServer(function (req, rsp) {
-	fs.readFile('chat_client.html', 'ascii', function (error, data) {
+	if (req.url == "/" || req.url == "/index.html") {
+		fs.readFile('chat_client.html', 'ascii', function (error, data) {
 		if (error) {
 			console.log(error.data)
 			rsp.writeHead(500)
@@ -16,8 +18,32 @@ var app = http.createServer(function (req, rsp) {
 			rsp.end();
 		}
 	});
-}).listen(PORT);
-
+	} else if (req.url == "/client.css") {
+		fs.readFile('client.css', 'ascii', function (error, data) {
+		if (error) {
+			console.log(error.data)
+			rsp.writeHead(500)
+			rsp.end()
+		} else {
+			rsp.writeHead(200, {'Content-Type': 'text/css'});
+			rsp.write(data);
+			rsp.end();
+		}
+	});
+	} else if (req.url == "/client.js") {
+		fs.readFile('client.js', 'ascii', function (error, data) {
+		if (error) {
+			console.log(error.data)
+			rsp.writeHead(500)
+			rsp.end()
+		} else {
+			rsp.writeHead(200, {'Content-Type': 'text/css'});
+			rsp.write(data);
+			rsp.end();
+		}
+	});
+	}
+}).listen(PORT, ADDR);
 
 var io = require('socket.io').listen(app);
 
@@ -25,6 +51,10 @@ var clients = new Array(); 			// associative array that holds the clients
 var groupChannels = new Array(); 	// associative array that holds group channel names
  
 io.sockets.on('connection', function(socket) {
+	/*
+	* Events that handle messages sent to/through the server and user preferences
+	*/
+	
     socket.on('message_to_server', function(msg) {
 		if (socket.dest == "unknown") {
 			console.log("Invalid context change, message dies here, then reverts context.")
@@ -41,10 +71,6 @@ io.sockets.on('connection', function(socket) {
 			globalMessage({ message: msg, user: socket.clientName, flag:"Global"});
 		}
 	});
-	
-	/*
-	* Events that handle messages sent to/through the server and user preferences
-	*/
 	
 	socket.on('server_messages', function(msg) {
 		var rsp;
@@ -71,13 +97,13 @@ io.sockets.on('connection', function(socket) {
 		var client = new Object();
 		client.name = username;
 		client.sockID = socket.id;
-		console.log(socket.id)
 		setContext(undefined, undefined)
 		clients[username] = client;
 		messageClient("Welcome, " + socket.clientName + "!" + 
 		" Use command \'/name &lt;your name&gt;' to change your username.");
 		// notify other users of new user
 		globalBroadcast(username + " has joined the chat!");
+		updateClientList();
 	});
 	
 	// Change a client's username and update in global list of clients
@@ -101,6 +127,7 @@ io.sockets.on('connection', function(socket) {
 		delete clients.oldName;
 		messageClient("Your name has been changed to " + username)
 		globalBroadcast(oldName + " has changed name to " + username)
+		updateClientList();
 	});
 	
 	// Set user to peer or group context and to specific user/group
@@ -129,6 +156,7 @@ io.sockets.on('connection', function(socket) {
 			groupChannels[channelName] = channel;
 			socket.channelOwned = channelName;
 			messageClient("Channel " + channelName + " created!")
+			updateChannelList();
 		}
 	});
 	
@@ -174,23 +202,7 @@ io.sockets.on('connection', function(socket) {
 			closeChannel(channelName);
 			messageClient("You have successfully closed channel " + channelName);
 		}
-	
 	 });
-	
-	// When a user disconnects, remove the client from list of clients
-	// If the client owned a channel close it since clients do not persist
-	socket.on('disconnect', function(data) {
-		globalBroadcast(socket.clientName + " has disconnected.");
-		// check if client was in a channel and leave if so
-		if (socket.room != undefined) {   
-			leaveChannel();
-		}
-		if (socket.channelOwned != undefined) {
-			closeChannel(socket.channelOwned);
-		}
-		
-		delete clients[socket.clientName];
-	});
 	
 	// separate function so it can be run on client disconnect as well
 	function closeChannel(channelName) {
@@ -206,6 +218,7 @@ io.sockets.on('connection', function(socket) {
 			}
 		}
 		delete groupChannels[channelName];
+		updateChannelList();
 	}
 	
 	// separate function so it can be run on client disconnect as well
@@ -230,6 +243,21 @@ io.sockets.on('connection', function(socket) {
 			socket.dest = dest;
 		}
 	}
+	
+	// When a user disconnects, remove the client from list of clients
+	// If the client owned a channel close it since clients do not persist
+	socket.on('disconnect', function(data) {
+		globalBroadcast(socket.clientName + " has disconnected.");
+		// check if client was in a channel and leave if so
+		if (socket.room != undefined) {   
+			leaveChannel();
+		}
+		if (socket.channelOwned != undefined) {
+			closeChannel(socket.channelOwned);
+		}
+		delete clients[socket.clientName];
+		updateClientList();
+	});
 	
 	/*
 	* Wrapper functions for different type of message sends
@@ -264,6 +292,14 @@ io.sockets.on('connection', function(socket) {
 	function clientToClient(otherClientID, data) {
 		io.to(otherClientID).emit('message_to_client', data);
 		io.to(socket.id).emit('message_to_client', data);
+	}
+	
+	function updateClientList() {
+		io.sockets.emit('update_client_list', Object.keys(clients));
+	}
+	
+	function updateChannelList() {
+		io.sockets.emit('update_channel_list', Object.keys(groupChannels));
 	}
 	
 });

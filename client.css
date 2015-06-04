@@ -1,0 +1,39 @@
+html, body {
+	height: 100%; 
+	background: #B0B0B0;			
+}
+#wrapper {
+	height: 100%;
+	display: table;
+	width: 100%;
+}
+#input {
+	display: table-row;
+	height: 25px;
+}
+#body {
+	height: 100%;
+	width: 100%;
+	display: table-row
+}
+#lists {
+	width: 200px;
+	float: left;
+	border: 1px black solid;
+	height: 100%;
+	max-height: 100%;
+	margin-right: 3px;
+	padding-left: 5px;
+	vertical-align: top;
+	overflow: hidden;
+	background: ivory;
+}
+#chatlog {
+	min-height: 100%;
+	max-height: 100%;
+	margin-right: 3px;
+	border: 1px black solid;
+	vertical-align: top;
+	overflow: auto;
+	background: ivory;
+}

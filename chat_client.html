@@ -4,108 +4,33 @@
 		<title>Messaging App</title>
         <script src="/socket.io/socket.io.js"></script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
-        <script type="text/javascript">
-			var socket = io.connect('127.0.0.1:22222')
-			
-			socket.on('connect', function (data) {
-				var tempName = "User+"+socket.id.substring(0,8);
-				socket.emit('init_user', tempName );
-			});
-			
-            socket.on('message_to_client', function(data) {
-				document.getElementById("chatlog").innerHTML = 
-				(document.getElementById("chatlog").innerHTML +
-				"<b>" + "&lt;" + data.flag + "&gt; " +
-				data.user +  ': ' + "</b>"
-				+ data.message + "<br>");
-			});
-			
-			// Event-handler for administrative/control messages from server
-			socket.on('message_from_server', function(msg) {
-				document.getElementById("chatlog").innerHTML = 
-				(document.getElementById("chatlog").innerHTML +
-				"<b>" + "&lt;Server&gt;: " + "</b><i>"
-				+ msg + "</i><br>");
-			});
-			
-			// Event-handler for channel messages
-			socket.on('message_to_channel', function(data) {
-				document.getElementById("chatlog").innerHTML = 
-				(document.getElementById("chatlog").innerHTML +
-				"<b>" + "&lt;" + data.channelName + "&gt; " + 
-				data.user + ": " + "</b>" + data.message + "<br>");
-			});
-			
-			// Send a message or command to the server
-			function sendMessage() {
-				var msg = document.getElementById("message_input").value.trim();
-				//document.getElementById("message_input").value = "";
-				// check for commands
-				if (msg.substring(0,1) == "/") {
-					msg = msg.substring(1)
-					// split cmd string into arguments, accounting for whitespace
-					// [0] -> cmd
-					// [1] -> arg1, a username or channel name
-					// [2] -> arg2, the optional message
-					var args = msg.replace(/\s+/g," ").split(" ", 3);
-					// everything after the first two args is the optional msg
-					if (args.length > 2) {
-						args[2] = msg.substring(msg.indexOf(args[2]));	
-					}
-					processCommand(args);
-				} else {
-					socket.emit('message_to_server', msg);
-				}
-			}
-			
-			// Processes commands denoted by a starting forward-slash
-			function processCommand(args) {
-				if (args[0] == "name") {
-						socket.emit('set_name', args[1].trim() );
-				} else if (args[0] == "m") {
-					// set to message a peer
-					socket.emit('set_msg_dest', {destType: args[0], dest: args[1]} );
-					// optionally send message to peer
-					if (args.length > 2) {
-						socket.emit('message_to_server', args[2]);
-					}
-				} else if (args[0] == "c") {
-					// set to message a channel
-					socket.emit('set_msg_dest', {destType: args[0], dest: args[1]} );
-					// optionally send message to channel
-					if (args.length > 2) {
-						socket.emit('message_to_server', args[2]);
-					}
-				} else if (args[0] == "join") {
-					socket.emit('join_channel', args[1]);
-				} else if (args[0] == "leave") {
-					socket.emit('leave_channel', args[1]);
-				} else if (args[0] == "newchannel") {
-					// create a new channel
-					socket.emit('create_channel', args[1]);
-					socket.emit('join_channel', args[1]);
-				} else if (args[0] == "closechannel") {
-					socket.emit('close_channel', args[1]);
-				} else if (args[0] == "help") {
-					socket.emit('server_messages', "help");
-				} else {
-					socket.emit('server_messages', "bad_cmd");
-				}
-			}
-			
-        </script>
-		<style>
-		</style>
+        <script src="/client.js"></script>
+		<link rel="stylesheet" type="text/css" href="client.css" />
     </head>
     <body>
-		<div style="top:10px;bottom:35px;width:100%;border:1px solid #ccc;font:12px Arial;overflow:auto;" 
-		id="chatlog" >
-		<div/>
+		<div id="wrapper">
 		
-        <input style="position:fixed;left:0px;bottom:0px;height:20px;width:90%;border:2px solid #ccc;font:12px Arial;overflow:auto;" 
-		id="message_input"/>
-        <button style="position:fixed;right:0px;bottom:0px;height:25px;width:10%;" 
-		onclick="sendMessage()">Send</button>
+			<div id="body">
+				<div id="lists">
+					<b><i>USERS:</i></b>
+					<div id="clients" style="padding-left:5px;"></div>
+					<hr>
+					<b><i>CHANNELS:</i></b>
+					<div id="channels" style="padding-left:5px;"></div>
+				</div>
+				<div id="chatlog">            
+
+				</div>
+			</div>
+			
+			<div id="input">
+				<input style="float:left;border:1px solid #ccc;font:12px Arial, Helvetica, sans-serif;width:90%;height:100%"
+				type="text" id="message_input"  />
+			
+				<input style="width:9%;height:100%" id="send_button" type="button" 
+				value="Send" onclick="sendMessage()" />
+			</div>
+		</div>
 		
     </body>
 </html>

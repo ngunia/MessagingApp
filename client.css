@@ -1,5 +1,6 @@
 html, body {
 	height: 100%; 
+	overflow: hidden;
 	background: #B0B0B0;			
 }
 #wrapper {
@@ -9,31 +10,31 @@ html, body {
 }
 #input {
 	display: table-row;
-	height: 25px;
+	height: 15px;
 }
 #body {
-	height: 100%;
+	height: 80%;
 	width: 100%;
 	display: table-row
 }
 #lists {
 	width: 200px;
 	float: left;
-	border: 1px black solid;
 	height: 100%;
-	max-height: 100%;
 	margin-right: 3px;
 	padding-left: 5px;
 	vertical-align: top;
-	overflow: hidden;
+	overflow: auto;
+	border: 1px black solid;
 	background: ivory;
 }
 #chatlog {
 	min-height: 100%;
 	max-height: 100%;
-	margin-right: 3px;
-	border: 1px black solid;
+	padding-left: 3px;
+	padding-right: 3px;
 	vertical-align: top;
 	overflow: auto;
+	border: 1px black solid;
 	background: ivory;
 }

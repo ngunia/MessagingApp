@@ -206,7 +206,6 @@ io.sockets.on('connection', function(socket) {
 	// If the owner of the channel decides to close the channel,
 	// remove all users and remove channel from list of channels
 	 socket.on('close_channel', function(channelName) {
-		console.log(groupChannels[channelName].owner);
 		if (socket.clientName != groupChannels[channelName].owner) {
 			messageClient("You don't own channel " + channelName + "!");
 		} else {

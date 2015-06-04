@@ -63,7 +63,7 @@ Firefox 38.0.1 (some spacing issues)
 - Leave less up to the user with a more robust client
     - Use physical elements on client side to control message flow,
    to deal with issue of users forgetting a "/" and sending a private message 
-   to the wrong person or to a channel, ie Separate windows for group chats/private         messages
+   to the wrong person or to a channel, ie Separate windows for group chats/private messages
     - Allow users to join multiple channels
     - More complex events, deal with server event responses more dynamically
 - Moderation tools for channel owners
@@ -71,5 +71,4 @@ Firefox 38.0.1 (some spacing issues)
     - Change channel name
     - Set a password on the channel
     - Set a welcome message
-
 

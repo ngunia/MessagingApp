@@ -1,5 +1,5 @@
 # Messaging Application
-This application is an event-driven messaging service powered by Node.js, Socket.IO, and AJAX on the front-end.  The service provides a global chat room as well as channeled group chats and private messaging between clients.  It runs in a browser and can be accessed by default at localhost:22222.
+This application is an event-driven messaging service powered by Node.js, Socket.IO, and AJAX on the front-end.  The service provides a global chat room as well as channeled group chats and private messaging between clients.  It runs in a browser and can be accessed by default at http://localhost:22222/.
 
 ### Installation
 
@@ -17,7 +17,7 @@ If you want to change where the client is accessed, change the ADDR and PORT in 
 node server.js
 ```
 
-The app will be available at localhost:22222 (or at whatever ADDR and PORT you chose) for use in your web browser.
+The app will be available at http://localhost:22222/ (or at whatever ADDR and PORT you chose) for use in your web browser.
 
 ##### Chat Commands
  - "/name  < name >" 

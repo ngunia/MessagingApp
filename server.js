@@ -9,9 +9,9 @@ var app = http.createServer(function (req, rsp) {
 	if (req.url == "/" || req.url == "/index.html") {
 		fs.readFile('chat_client.html', 'ascii', function (error, data) {
 		if (error) {
-			console.log(error.data)
-			rsp.writeHead(500)
-			rsp.end()
+			console.log(error.data);
+			rsp.writeHead(500);
+			rsp.end();
 		} else {
 			rsp.writeHead(200, {'Content-Type': 'text/html'});
 			rsp.write(data);
@@ -21,9 +21,9 @@ var app = http.createServer(function (req, rsp) {
 	} else if (req.url == "/client.css") {
 		fs.readFile('client.css', 'ascii', function (error, data) {
 		if (error) {
-			console.log(error.data)
-			rsp.writeHead(500)
-			rsp.end()
+			console.log(error.data);
+			rsp.writeHead(500);
+			rsp.end();
 		} else {
 			rsp.writeHead(200, {'Content-Type': 'text/css'});
 			rsp.write(data);
@@ -33,9 +33,9 @@ var app = http.createServer(function (req, rsp) {
 	} else if (req.url == "/client.js") {
 		fs.readFile('client.js', 'ascii', function (error, data) {
 		if (error) {
-			console.log(error.data)
-			rsp.writeHead(500)
-			rsp.end()
+			console.log(error.data);
+			rsp.writeHead(500);
+			rsp.end();
 		} else {
 			rsp.writeHead(200, {'Content-Type': 'text/css'});
 			rsp.write(data);
@@ -57,7 +57,6 @@ io.sockets.on('connection', function(socket) {
 	
 	// interpret a message being passed through the server for global/private/channel chat
     socket.on('message_to_server', function(msg) {
-		console.log('gets here')
 		if (socket.dest == "unknown") {
 			console.log("Invalid context change, message dies here, then reverts context.")
 			socket.dest = socket.lastDest;
@@ -74,7 +73,6 @@ io.sockets.on('connection', function(socket) {
 				messageClient("Sorry, you must join " + socket.dest + " if you wish to speak in this channel.");
 			}
 		} else if (socket.destType == undefined) {
-			console.log('gets here')
 			globalMessage({ message: msg, user: socket.clientName, flag:"Global"});
 		}
 	});
@@ -105,7 +103,7 @@ io.sockets.on('connection', function(socket) {
 		var client = new Object();
 		client.name = username;
 		client.sockID = socket.id;
-		setContext(undefined, undefined)
+		setContext(undefined, undefined);
 		clients[username] = client;
 		messageClient("Welcome, " + socket.clientName + "!" + 
 		" Use command \'/name &lt;your name&gt;' to change your username.");
@@ -166,7 +164,7 @@ io.sockets.on('connection', function(socket) {
 			channel.owner = socket.clientName;
 			groupChannels[channelName] = channel;
 			socket.channelOwned = channelName;
-			messageClient("Channel " + channelName + " created!")
+			messageClient("Channel " + channelName + " created!");
 			updateChannelList();
 		}
 	});
@@ -177,18 +175,18 @@ io.sockets.on('connection', function(socket) {
 			messageClient("You are already a member of channel " + channelName + "!");
 		} else if (socket.room != undefined && groupChannels[channelName] != undefined) {
 			socket.leave(socket.room);
-			broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." })
+			broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." });
 			socket.room = channelName;
 			socket.join(channelName);
 			broadcastToRoom({channelName: channelName, user: "Server", message: socket.clientName + " has joined " + channelName + "." });
 			setContext("c", channelName);
 			messageClient("You have switched to channel " + channelName);
 		} else if (groupChannels[channelName] == undefined) {
-			messageClient("Sorry, that channel doesn't exist, create it with command: /newchannel " + channelName + ".")
+			messageClient("Sorry, that channel doesn't exist, create it with command: /newchannel " + channelName + ".");
 		} else {
 			socket.room = channelName;
 			socket.join(channelName);
-			messageClient("You have joined channel: " + channelName)
+			messageClient("You have joined channel: " + channelName);
 			// alert other users in channel of new user
 			broadcastToRoom({channelName: channelName, user: "Server", message: socket.clientName + " has joined " + channelName + "." });
 			// set client's context to messages the channel
@@ -239,8 +237,8 @@ io.sockets.on('connection', function(socket) {
 	// let a user remove self from channel and announce to channel
 	function leaveChannel() {
 		socket.leave(socket.room);
-		broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." })
-		messageClient("You have left "+ socket.room + ".")
+		broadcastToRoom({channelName: socket.room, user: "Server", message: socket.clientName + " has left " + socket.room + "." });
+		messageClient("You have left "+ socket.room + ".");
 		socket.room = undefined;
 		setContext(undefined, undefined);
 	}

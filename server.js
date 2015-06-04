@@ -60,7 +60,7 @@ io.sockets.on('connection', function(socket) {
 			console.log("Invalid context change, message dies here, then reverts context.")
 			socket.dest = socket.lastDest;
 		} else if (socket.destType == "m" && clients[socket.dest] != undefined) {
-			clientToClient(clients[socket.dest].sockID, {message: msg, user: socket.clientName, flag: "PM"});
+			clientToClient(clients[socket.dest].sockID, {message: msg, user: socket.clientName, flag: "Private"});
 		} else if (socket.destType == "c" && groupChannels[socket.dest] != undefined) {
 			if(socket.room == socket.dest) {
 				messageChannel({channelName: socket.dest, user: socket.clientName, message: msg});
@@ -124,7 +124,7 @@ io.sockets.on('connection', function(socket) {
 			}
 		}
 		// remove old client alias
-		delete clients.oldName;
+		delete clients[oldName];
 		messageClient("Your name has been changed to " + username)
 		globalBroadcast(oldName + " has changed name to " + username)
 		updateClientList();

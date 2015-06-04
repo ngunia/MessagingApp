@@ -23,13 +23,19 @@ socket.on('update_channel_list', function(channelArray) {
 
 
 socket.on('message_to_client', function(data) {
-	$('#chatlog').append("<b>" + "&lt;" + data.flag + "&gt; " +
+	var color;
+	if (data.flag == "Private") {
+		color = "'800080'";
+	} else {
+		color = "'FFA500'";
+	}
+	$('#chatlog').append("<b><font color="+color+">" + "&lt;" + data.flag + "&gt;</font> " +
 	data.user +  ': ' + "</b>" + data.message + "<br>");
 });
 
 // Event-handler for administrative/control messages from server
 socket.on('message_from_server', function(msg) {
-	$('#chatlog').append("<b>" + "&lt;Server&gt;: " + "</b><i>"
+	$('#chatlog').append("<b><font color='006400'>" + "&lt;Server&gt;: " + "</font></b><i>"
 	+ msg + "</i><br>");
 });
 

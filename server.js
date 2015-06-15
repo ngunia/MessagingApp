@@ -305,7 +305,6 @@ io.sockets.on('connection', function(socket) {
 	// Message an individual client from another client
 	function clientToClient(otherClientID, data) {
 		io.to(otherClientID).emit('message_to_client', data);
-		data.user = socket.clientName;
 		io.to(socket.id).emit('message_to_client', data);
 	}
 	

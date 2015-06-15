@@ -109,6 +109,7 @@ io.sockets.on('connection', function(socket) {
 		" Use command \'/name &lt;your name&gt;' to change your username.");
 		// notify other users of new user
 		globalBroadcast(username + " has joined the chat!");
+		updateChannelList();
 		updateClientList();
 	});
 	
@@ -206,6 +207,9 @@ io.sockets.on('connection', function(socket) {
 	// If the owner of the channel decides to close the channel,
 	// remove all users and remove channel from list of channels
 	 socket.on('close_channel', function(channelName) {
+		if (groupChannels[channelName] == undefined) {
+			return;
+		}
 		if (socket.clientName != groupChannels[channelName].owner) {
 			messageClient("You don't own channel " + channelName + "!");
 		} else {
@@ -216,14 +220,15 @@ io.sockets.on('connection', function(socket) {
 	
 	// separate function so it can be run on client disconnect as well
 	function closeChannel(channelName) {
-		//socket.channelOwned = undefined;
 		roomClients = io.nsps['/'].adapter.rooms[channelName];
 		for (var client in roomClients) {
 			cli = io.sockets.connected[client];
-			if (socket.id != cli.d) {
+			if (socket.id != cli.id) {
 				cli.room = undefined;
-				cli.destType = undefined;
-				cli.dest = undefined;
+				if (cli.destType == "c") {
+					cli.destType = undefined;
+					cli.dest = undefined;
+				}
 				io.to(cli.id).emit("message_from_server", "You have been removed from channel " + channelName + " due to it being closed by the owner.");
 			}
 		}
